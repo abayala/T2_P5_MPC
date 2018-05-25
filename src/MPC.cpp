@@ -119,3 +119,21 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // creates a 2 element double vector.
   return {};
 }
+
+Eigen::VectorXd MPC::globalKinematic ( Eigen::VectorXd state ,
+                                  Eigen::VectorXd actuators , double dt )
+{
+    Eigen::VectorXd next_state ( state.size ( ) );
+
+    // NOTE: state is [x, y, psi, v]
+    // NOTE: actuators is [delta, a]
+
+    //Add your code below
+    double v = state ( 3 );
+    double psi = state ( 2 );
+    next_state ( 0 ) = state ( 0 ) + v * cos ( psi )*dt;
+    next_state ( 1 ) = state ( 1 ) + v * sin ( psi )*dt;
+    next_state ( 2 ) = state ( 2 ) + ( v / Lf )*actuators ( 0 )*dt;
+    next_state ( 3 ) = state ( 3 ) + actuators ( 1 )*dt;
+    return next_state;
+}

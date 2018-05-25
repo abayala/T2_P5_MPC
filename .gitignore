@@ -3,3 +3,6 @@ build
 tags
 .editorconfig
 .DS_Store
+build_win/
+Ipopt-3.12.7/
+errors.txt
