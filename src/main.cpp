@@ -91,6 +91,8 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j [ 1 ] [ "steering_angle" ];
+          double a = j [ 1 ] [ "throttle" ];
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
@@ -101,15 +103,78 @@ int main() {
           double steer_value;
           double throttle_value;
 
+          // Eigen vectors for polyfit in vechicle coordinate frame
+          Eigen::VectorXd ptsx_vcs ( ptsx.size ( ) );
+          Eigen::VectorXd ptsy_vcs ( ptsy.size ( ) );
+
+          // Fill the Eigen arrays with the points transformed from wcs to vcs
+          for ( uint16_t i = 0; i < ptsx.size ( ); i++ )
+          {
+              //translate
+              double x = ptsx [ i ] - px;
+              double y = ptsy [ i ] - py;
+              //rotate 
+              ptsx_vcs [ i ] = x * cos ( -psi ) - y * sin ( -psi );
+              ptsy_vcs [ i ] = x * sin ( -psi ) + y * cos ( -psi );
+          }
+          // Compute the coefficients ot the third degree polynomial
+          auto coeffs = polyfit ( ptsx_vcs , ptsy_vcs , 3 );
+          //Compute the errors of the current position
+          double cte = polyeval ( coeffs , px ) - py;
+          double epsi = v - atan ( coeffs [ 1 ] );
+
+          // Predict state after latency
+          // x, y and psi are all zero after transformation above
+          double pred_px = 0.0 + v * dt; // Since psi is zero, cos(0) = 1, can leave out
+          const double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
+          double pred_psi = 0.0 + v * -delta / Lf * dt;
+          double pred_v = v + a * dt;
+          double pred_cte = cte + v * sin ( epsi ) * dt;
+          double pred_epsi = epsi + v * -delta / Lf * dt;
+
+          // Feed in the predicted state values
+          Eigen::VectorXd state ( 6 );
+          state << pred_px , pred_py , pred_psi , pred_v , pred_cte , pred_epsi;
+
+          // Solve the system
+          auto vars = mpc.Solve ( state , coeffs );
+
+          // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
+          // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
+          //Normalize the steering angle
+          steer_value = -1*vars [ 0 ] / deg2rad ( 25 );
+          throttle_value = vars [ 1 ];
+          if ( throttle_value<0.1 &&throttle_value>-0.1 )
+          {
+              if ( throttle_value >= 0 )
+              {
+                  throttle_value = 0.1;
+              }
+              else
+              {
+                  throttle_value = -0.1;
+              }
+          }
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
+
+
           //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          vector<double> mpc_x_vals = { state [ 0 ] };
+          vector<double> mpc_y_vals = { state [ 1 ] };
+
+          // add (x,y) points to list here, points are in reference to the vehicle's coordinate system
+          // the points in the simulator are connected by a Green line
+
+          for ( int i = 2; i < ( int ) vars.size ( ); i += 2 )
+          {
+              mpc_x_vals.push_back ( vars [ i ] );
+              mpc_y_vals.push_back ( vars [ i + 1 ] );
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -123,6 +188,15 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          double poly_inc = 2.5;
+          int num_points = 25;
+
+          for ( int i = 1; i < num_points; i++ )
+          {
+              next_x_vals.push_back ( poly_inc * i );
+              next_y_vals.push_back ( polyeval ( coeffs , poly_inc * i ) );
+          }
+
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

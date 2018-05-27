@@ -3,27 +3,23 @@
 #include <cppad/ipopt/solve.hpp>
 #include "Eigen-3.3/Eigen/Core"
 
+// Weights for COST FUNCTION
+#define W_CTE 4000
+#define W_EPSI 4000
+#define W_V 2
+#define W_DELTA 5
+#define W_A 5
+#define W_D_V 800
+#define W_DDELTA 200
+#define W_DA 10
+
 using CppAD::AD;
 
-// TODO: Set the timestep length and duration
-size_t N = 20;
-double dt = 0.05;
 
-// This value assumes the model presented in the classroom is used.
-//
-// It was obtained by measuring the radius formed by running the vehicle in the
-// simulator around in a circle with a constant steering angle and velocity on a
-// flat terrain.
-//
-// Lf was tuned until the the radius formed by the simulating the model
-// presented in the classroom matched the previous radius.
-//
-// This is the length from front to CoG that has a similar radius.
-const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
 // The reference velocity is set to 40 mph.
-double ref_v = 35;
+double ref_v = 20;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should establish
@@ -58,23 +54,24 @@ public:
         // The part of the cost based on the reference state.
         for ( int t = 0; t < N; t++ )
         {
-            fg [ 0 ] += CppAD::pow ( vars [ cte_start + t ] , 2 );
-            fg [ 0 ] += CppAD::pow ( vars [ epsi_start + t ] , 2 );
-            fg [ 0 ] += CppAD::pow ( vars [ v_start + t ] - ref_v , 2 );
+            fg [ 0 ] += W_CTE* CppAD::pow ( vars [ cte_start + t ] , 2 );
+            fg [ 0 ] += W_EPSI* CppAD::pow ( vars [ epsi_start + t ] , 2 );
+            fg [ 0 ] += W_V *CppAD::pow ( vars [ v_start + t ] - ref_v , 2 );
         }
 
         // Minimize the use of actuators.
         for ( int t = 0; t < N - 1; t++ )
         {
-            fg [ 0 ] += CppAD::pow ( vars [ delta_start + t ] , 2 );
-            fg [ 0 ] += CppAD::pow ( vars [ a_start + t ] , 2 );
+            fg [ 0 ] += W_DELTA * CppAD::pow ( vars [ delta_start + t ] , 2 );
+            fg [ 0 ] += W_A * CppAD::pow ( vars [ a_start + t ] , 2 );
+            fg [ 0 ] += W_D_V * CppAD::pow ( vars [ delta_start + t ] * vars [ v_start + t ] , 2 );
         }
 
         // Minimize the value gap between sequential actuations.
         for ( int t = 0; t < N - 2; t++ )
         {
-            fg [ 0 ] += CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
-            fg [ 0 ] += CppAD::pow ( vars [ a_start + t + 1 ] - vars [ a_start + t ] , 2 );
+            fg [ 0 ] += W_DDELTA * CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
+            fg [ 0 ] += W_DA * CppAD::pow ( vars [ a_start + t + 1 ] - vars [ a_start + t ] , 2 );
         }
         //
         // Setup Constraints
@@ -116,8 +113,8 @@ public:
             AD<double> delta0 = vars [ delta_start + t - 1 ];
             AD<double> a0 = vars [ a_start + t - 1 ];
 
-            AD<double> f0 = coeffs [ 0 ] + coeffs [ 1 ] * x0;
-            AD<double> psides0 = CppAD::atan ( coeffs [ 1 ] );
+            AD<double> f0 = coeffs [ 0 ] + coeffs [ 1 ] * x0 + coeffs [ 2 ] * pow ( x0 , 2 ) + coeffs [ 3 ] * pow ( x0 , 3 );
+            AD<double> psides0 = CppAD::atan ( coeffs [ 1 ] + 2 * coeffs [ 2 ] * x0 + 3 * coeffs [ 3 ] * pow ( x0 , 2 ) );
 
             // Here's `x` to get you started.
             // The idea here is to constraint this value to be 0.
@@ -148,7 +145,6 @@ MPC::~MPC ( ) { }
 vector<double> MPC::Solve ( Eigen::VectorXd state , Eigen::VectorXd coeffs )
 {
     bool ok = true;
-    size_t i;
     typedef CPPAD_TESTVECTOR ( double ) Dvector;
     /*Latch vars, will make code more understandable*/
     double x = state [ 0 ];
@@ -177,13 +173,13 @@ vector<double> MPC::Solve ( Eigen::VectorXd state , Eigen::VectorXd coeffs )
         vars [ i ] = 0;
     }
 
-    // Set the initial variable values
-    vars [ x_start ] = x;
-    vars [ y_start ] = y;
-    vars [ psi_start ] = psi;
-    vars [ v_start ] = v;
-    vars [ cte_start ] = cte;
-    vars [ epsi_start ] = epsi;
+    //// Set the initial variable values
+    //vars [ x_start ] = x;
+    //vars [ y_start ] = y;
+    //vars [ psi_start ] = psi;
+    //vars [ v_start ] = v;
+    //vars [ cte_start ] = cte;
+    //vars [ epsi_start ] = epsi;
 
     // Lower and upper limits for x
     Dvector vars_lowerbound ( n_vars );
@@ -278,26 +274,16 @@ vector<double> MPC::Solve ( Eigen::VectorXd state , Eigen::VectorXd coeffs )
     // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
     // creates a 2 element double vector.
 
-    return { solution.x [ x_start + 1 ],   solution.x [ y_start + 1 ],
-        solution.x [ psi_start + 1 ], solution.x [ v_start + 1 ],
-        solution.x [ cte_start + 1 ], solution.x [ epsi_start + 1 ],
-        solution.x [ delta_start ],   solution.x [ a_start ] };
+    vector<double> solved;
+
+    solved.push_back ( solution.x [ delta_start ] );
+    solved.push_back ( solution.x [ a_start ] );
+
+    for ( size_t i = 0; i < N - 1; i++ )
+    {
+        solved.push_back ( solution.x [ x_start + i + 1 ] );
+        solved.push_back ( solution.x [ y_start + i + 1 ] );
+    }
+    return solved;
 }
 
-Eigen::VectorXd MPC::globalKinematic ( Eigen::VectorXd state ,
-                                       Eigen::VectorXd actuators , double dt )
-{
-    Eigen::VectorXd next_state ( state.size ( ) );
-
-    // NOTE: state is [x, y, psi, v]
-    // NOTE: actuators is [delta, a]
-
-    //Add your code below
-    double v = state ( 3 );
-    double psi = state ( 2 );
-    next_state ( 0 ) = state ( 0 ) + v * cos ( psi )*dt;
-    next_state ( 1 ) = state ( 1 ) + v * sin ( psi )*dt;
-    next_state ( 2 ) = state ( 2 ) + ( v / Lf )*actuators ( 0 )*dt;
-    next_state ( 3 ) = state ( 3 ) + actuators ( 1 )*dt;
-    return next_state;
-}
