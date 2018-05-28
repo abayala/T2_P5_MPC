@@ -77,7 +77,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+   // cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -103,9 +103,7 @@ int main() {
           double steer_value;
           double throttle_value;
 
-          // Eigen vectors for polyfit in vechicle coordinate frame
-          Eigen::VectorXd ptsx_vcs ( ptsx.size ( ) );
-          Eigen::VectorXd ptsy_vcs ( ptsy.size ( ) );
+          
 
           // Fill the Eigen arrays with the points transformed from wcs to vcs
           for ( uint16_t i = 0; i < ptsx.size ( ); i++ )
@@ -114,26 +112,33 @@ int main() {
               double x = ptsx [ i ] - px;
               double y = ptsy [ i ] - py;
               //rotate 
-              ptsx_vcs [ i ] = x * cos ( -psi ) - y * sin ( -psi );
-              ptsy_vcs [ i ] = x * sin ( -psi ) + y * cos ( -psi );
+              ptsx [ i ] = x * cos ( -psi ) - y * sin ( -psi );
+              ptsy [ i ] = x * sin ( -psi ) + y * cos ( -psi );
           }
+
+          // Eigen vectors for polyfit in vechicle coordinate frame
+          double* ptr_x_vcs = &ptsx [ 0 ];
+          Eigen::Map<Eigen::VectorXd> ptsx_vcs ( ptr_x_vcs,6);
+          double* ptr_y_vcs = &ptsy [ 0 ];
+          Eigen::Map<Eigen::VectorXd>  ptsy_vcs ( ptr_y_vcs , 6 ) ;
           // Compute the coefficients ot the third degree polynomial
           auto coeffs = polyfit ( ptsx_vcs , ptsy_vcs , 3 );
           //Compute the errors of the current position
-          double cte = polyeval ( coeffs , px ) - py;
-          double epsi = v - atan ( coeffs [ 1 ] );
+          double cte = polyeval ( coeffs , 0 );
+          double epsi = - atan ( coeffs [ 1 ] );
 
           // Predict state after latency
           // x, y and psi are all zero after transformation above
           double pred_px = 0.0 + v * dt; // Since psi is zero, cos(0) = 1, can leave out
           const double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
-          double pred_psi = 0.0 + v * -delta / Lf * dt;
+          double pred_psi = 0.0 + v * delta / Lf * dt; 
           double pred_v = v + a * dt;
-          double pred_cte = cte + v * sin ( epsi ) * dt;
-          double pred_epsi = epsi + v * -delta / Lf * dt;
-
+          double pred_cte = cte - v * sin ( epsi ) * dt;
+          double pred_epsi = epsi + v * delta / Lf * dt;
+          
           // Feed in the predicted state values
           Eigen::VectorXd state ( 6 );
+          //state << 0 , 0 , 0 , v , cte , epsi;
           state << pred_px , pred_py , pred_psi , pred_v , pred_cte , pred_epsi;
 
           // Solve the system
@@ -142,19 +147,9 @@ int main() {
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           //Normalize the steering angle
-          steer_value = -1*vars [ 0 ] / deg2rad ( 25 );
+          steer_value = vars [ 0 ] / (deg2rad ( 25 )*Lf);
           throttle_value = vars [ 1 ];
-          if ( throttle_value<0.1 &&throttle_value>-0.1 )
-          {
-              if ( throttle_value >= 0 )
-              {
-                  throttle_value = 0.1;
-              }
-              else
-              {
-                  throttle_value = -0.1;
-              }
-          }
+         
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
@@ -203,7 +198,7 @@ int main() {
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          //std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
