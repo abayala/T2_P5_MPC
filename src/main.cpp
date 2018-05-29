@@ -101,9 +101,7 @@ int main() {
           *
           */
           double steer_value;
-          double throttle_value;
-
-          
+          double throttle_value;          
 
           // Fill the Eigen arrays with the points transformed from wcs to vcs
           for ( uint16_t i = 0; i < ptsx.size ( ); i++ )
@@ -121,10 +119,10 @@ int main() {
           Eigen::Map<Eigen::VectorXd> ptsx_vcs ( ptr_x_vcs,6);
           double* ptr_y_vcs = &ptsy [ 0 ];
           Eigen::Map<Eigen::VectorXd>  ptsy_vcs ( ptr_y_vcs , 6 ) ;
-          // Compute the coefficients ot the third degree polynomial
+          // Compute or fit a 3rd degree polynomial to the waypoints in vcs  
           auto coeffs = polyfit ( ptsx_vcs , ptsy_vcs , 3 );
-          //Compute the errors of the current position
-          double cte = polyeval ( coeffs , 0 );
+          //Compute the errors of the current position 
+          double cte = polyeval ( coeffs , 0 ); // py =0
           double epsi = - atan ( coeffs [ 1 ] );
 
           // Predict state after latency
