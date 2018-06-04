@@ -94,10 +94,10 @@ int main() {
           double delta = j [ 1 ] [ "steering_angle" ];
           double a = j [ 1 ] [ "throttle" ];
 
-          //convert velocity to m/s
-          v = v * 1000;
-          // invert steering angle sign
-          delta = -delta;
+//          //convert velocity to m/s
+//          v = v * 1000;
+//          // invert steering angle sign
+//          delta = -delta;
           double steer_value;
           double throttle_value;          
 
@@ -125,12 +125,13 @@ int main() {
 
           // Predict state after latency
           // x, y and psi are all zero after transformation above
-          double pred_px = 0.0 + v * dt; // Since psi is zero, cos(0) = 1, can leave out
+          const double latency = 0.1;
+          double pred_px = 0.0 + v * latency; // Since psi is zero, cos(0) = 1, can leave out
           const double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
-          double pred_psi = 0.0 + v * delta / Lf * dt; 
-          double pred_v = v + a * dt;
-          double pred_cte = cte - v * sin ( epsi ) * dt;
-          double pred_epsi = epsi + v * delta / Lf * dt;
+          double pred_psi = 0.0 - v * delta / Lf * latency; 
+          double pred_v = v + a * latency;
+          double pred_cte = cte + v * sin ( epsi ) * latency;
+          double pred_epsi = epsi + v * delta / Lf * latency;
           
           // Feed in the predicted state values
           Eigen::VectorXd state ( 6 );
@@ -143,7 +144,7 @@ int main() {
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           //Normalize the steering angle
-          steer_value = vars [ 0 ] / deg2rad ( 25 );
+          steer_value = -vars [ 0 ] / (deg2rad ( 25 )*Lf);
           throttle_value = vars [ 1 ];
          
           json msgJson;
