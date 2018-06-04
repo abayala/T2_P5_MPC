@@ -48,14 +48,15 @@ After describing the state variables and their update functions I will describe 
 2.- I read from the simulator the desired trajectory waypoints in ptsx and ptsy
 3.- since the waypoints are in global frame and I want them in local frame, I transformed them into vehicle coordinate frame by substracting the current position of the car in the world. thren i rotated them by the negative value of the current psi angle.
 
-´´´
+```
               //translate
               double x = ptsx [ i ] - px;
               double y = ptsy [ i ] - py;
               //rotate 
               ptsx [ i ] = x * cos ( -psi ) - y * sin ( -psi );
               ptsy [ i ] = x * sin ( -psi ) + y * cos ( -psi );
-´´´
+```
+
 4.- With the trasnformed waypoints I fitted a 3rd degree ploynomial and extracted its coefficients with the provided polyfit function
 
 5.- To calculate cte[t], I used the coefficients computed in 4, and evaluated the polynomial at x =0  with the provided polyeval function. Since y =0 we have that cte[t] = polyeval ( coeffs , 0 )
