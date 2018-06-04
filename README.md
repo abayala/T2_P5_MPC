@@ -28,14 +28,14 @@ To modify the previous variables the model has the next actuators that will move
 The state vector then conatins [x, y, psi,v, cte, epsi ] 
 
 The update equations of each of the variables are :
-
+```
 x[t+1] = x[t] + v * cos ( psi ) * dt
 y[t+1] = y[t] + v * sin ( psi ) * dt 
 psi[t+1] = psi[t] - v * delta / Lf * dt
 v[t+1] = v[t] + a*dt
 cte[t+1] = f(x[t]) -  y[t] + v[t] * sin ( epsi[t] ) * dt )
 epsi[t+1] = ( psi[t] - psides[t] ) - v[t] * delta[t] / Lf * dt
-
+```
 where f is the 3rd degree polynomial of the reference or desired trajectory. 
 Lf is the distance from the center of mass of the car and the front axel, in which for this project Lf = 2.67 mts according to the class material. 
 psides[t] is the desired heading to reach, which can be calculated by computing the tangential angle of the deritave of the polynomial f, in other words psides[t] = arctan(f'(x))
@@ -65,42 +65,45 @@ ptsy [ i ] = x * sin ( -psi ) + y * cos ( -psi );
 
 7.- To compensate the latency of the system, I predicted the state by adding the displacement to the current state with the update equiations of the model
 ```c
-double pred_px = 0.0 + v * dt; // Since psi is zero, cos(0) = 1, can leave out
+const double latency = 0.1; // 100 ms latency
+double pred_px = 0.0 + v * latency; // Since psi is zero, cos(0) = 1, can leave out
 const double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
-double pred_psi = 0.0 + v * delta / Lf * dt; 
-double pred_v = v + a * dt;
-double pred_cte = cte - v * sin ( epsi ) * dt;
-double pred_epsi = epsi + v * delta / Lf * dt;
+double pred_psi = 0.0 - v * delta / Lf * latency; 
+double pred_v = v + a * latency;
+double pred_cte = cte + v * sin ( epsi ) * latency;
+double pred_epsi = epsi + v * delta / Lf * latency;
 ```        
+7.- I set the values of N = 10 and dt = 0.1 , which means that the trajectory to planned will be for 1 seconds in the future of the current position. According to the class material few seconds of plannning ahead the trajectory is good, since more than that will be useless due to the change of position of the vehicle. Having only 10 steps to compute makes the solver computation lighter. 
+
 8.- Then the coefficients and the predicted state is input to the solve function in the mpc.cpp file, for which I set some contraints in the state variables to optimize in the range of values previoulsy desribed for the actuators, and to [mindouble , maxdouble] for non acutators
 
 9.- Regarding the function FG_Eval::void operator() function used inside solve function, I used the next wieghts in the error constraints vector fg following the recomendations in the class project walkthorugh:
 ```c
-// The part of the cost based on the reference state.
+ // The part of the cost based on the reference state.
 for ( int t = 0; t < N; t++ )
 {
-    fg [ 0 ] += 2000* CppAD::pow ( vars [ cte_start + t ] , 2 );
-    fg [ 0 ] += 2000* CppAD::pow ( vars [ epsi_start + t ] , 2 );
+    fg [ 0 ] += 100* CppAD::pow ( vars [ cte_start + t ] , 2 );
+    fg [ 0 ] += 100* CppAD::pow ( vars [ epsi_start + t ] , 2 );
     fg [ 0 ] +=  CppAD::pow ( vars [ v_start + t ] - ref_v , 2 );
 }
 
 // Minimize the use of actuators.
 for ( int t = 0; t < N - 1; t++ )
 {
-    fg [ 0 ] += 5 * CppAD::pow ( vars [ delta_start + t ] , 2 );
-    fg [ 0 ] += 5 * CppAD::pow ( vars [ a_start + t ] , 2 );
+    fg [ 0 ] += 300 * CppAD::pow ( vars [ delta_start + t ] , 2 );
+    fg [ 0 ] +=  CppAD::pow ( vars [ a_start + t ] , 2 );
    
 }
 
 // Minimize the value gap between sequential actuations.
 for ( int t = 0; t < N - 2; t++ )
 {
-    fg [ 0 ] += 200 * CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
-    fg [ 0 ] += 10 * CppAD::pow ( vars [ a_start + t + 1 ] - vars [ a_start + t ] , 2 );
+    fg [ 0 ] += 10 * CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
+    fg [ 0 ] +=  CppAD::pow ( vars [ a_start + t + 1 ] - vars [ a_start + t ] , 2 );
 }
 ```
 
-Where it can be observed that the cte and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 70 km/h
+Where it can be observed that the cte and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 60 km/h
 
 Some important comments of the next part of the code 
 
@@ -114,10 +117,10 @@ AD<double> psides0 = CppAD::atan ( coeffs [ 1 ] + 2 * coeffs [ 2 ] * x0 + 3 * co
 
 fg [ 1 + x_start + t ] = x1 - ( x0 + v0 * CppAD::cos ( psi0 ) * dt );
 fg [ 1 + y_start + t ] = y1 - ( y0 + v0 * CppAD::sin ( psi0 ) * dt );
-fg [ 1 + psi_start + t ] = psi1 - ( psi0 - v0 * delta0 / Lf * dt );
+fg [ 1 + psi_start + t ] = psi1 - ( psi0 + v0 * delta0 / Lf * dt );
 fg [ 1 + v_start + t ] = v1 - ( v0 + a0 * dt );
 fg [ 1 + cte_start + t ] = cte1 - ( ( f0 - y0 ) + ( v0 * CppAD::sin ( epsi0 ) * dt ) );
-fg [ 1 + epsi_start + t ] = epsi1 - ( ( psi0 - psides0 ) - v0 * delta0 / Lf * dt );
+fg [ 1 + epsi_start + t ] = epsi1 - ( ( psi0 - psides0 ) + v0 * delta0 / Lf * dt );
 ```
  f0 and psides0 are evaluted with the computed coefficients and a 3rd degree polynomial. As seen in the code comments, there are also constraints in the state vector, it shall be equal to 0, for example x[t+1] - x[t] + v * cos ( psi ) * dt = 0
  

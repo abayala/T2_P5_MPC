@@ -93,11 +93,6 @@ int main() {
           double v = j[1]["speed"];
           double delta = j [ 1 ] [ "steering_angle" ];
           double a = j [ 1 ] [ "throttle" ];
-
-//          //convert velocity to m/s
-//          v = v * 1000;
-//          // invert steering angle sign
-//          delta = -delta;
           double steer_value;
           double throttle_value;          
 
