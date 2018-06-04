@@ -94,12 +94,10 @@ int main() {
           double delta = j [ 1 ] [ "steering_angle" ];
           double a = j [ 1 ] [ "throttle" ];
 
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+          //convert velocity to m/s
+          v = v * 1000;
+          // invert steering angle sign
+          delta = -delta;
           double steer_value;
           double throttle_value;          
 
@@ -145,7 +143,7 @@ int main() {
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           //Normalize the steering angle
-          steer_value = vars [ 0 ] / (deg2rad ( 25 )*Lf);
+          steer_value = vars [ 0 ] / deg2rad ( 25 );
           throttle_value = vars [ 1 ];
          
           json msgJson;

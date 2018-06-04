@@ -48,7 +48,7 @@ public:
         for ( int t = 0; t < N; t++ )
         {
             fg [ 0 ] += 2000* CppAD::pow ( vars [ cte_start + t ] , 2 );
-            fg [ 0 ] += 2000* CppAD::pow ( vars [ epsi_start + t ] , 2 );
+            fg [ 0 ] += 4000* CppAD::pow ( vars [ epsi_start + t ] , 2 );
             fg [ 0 ] +=  CppAD::pow ( vars [ v_start + t ] - ref_v , 2 );
         }
 
@@ -63,7 +63,7 @@ public:
         // Minimize the value gap between sequential actuations.
         for ( int t = 0; t < N - 2; t++ )
         {
-            fg [ 0 ] += 200 * CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
+            fg [ 0 ] += 2000 * CppAD::pow ( vars [ delta_start + t + 1 ] - vars [ delta_start + t ] , 2 );
             fg [ 0 ] += 10 * CppAD::pow ( vars [ a_start + t + 1 ] - vars [ a_start + t ] , 2 );
         }
         //
@@ -134,12 +134,12 @@ vector<double> MPC::Solve ( Eigen::VectorXd state , Eigen::VectorXd coeffs )
     bool ok = true;
     typedef CPPAD_TESTVECTOR ( double ) Dvector;
     /*Latch vars, will make code more understandable*/
-    double x = state [ 0 ];
-    double y = state [ 1 ];
-    double psi = state [ 2 ];
-    double v = state [ 3 ];
-    double cte = state [ 4 ];
-    double epsi = state [ 5 ];
+    const double x = state [ 0 ];
+    const double y = state [ 1 ];
+    const double psi = state [ 2 ];
+    const double v = state [ 3 ];
+    const double cte = state [ 4 ];
+    const double epsi = state [ 5 ];
 
     // TODO: Set the number of model variables (includes both states and inputs).
     // For example: If the state is a 4 element vector, the actuators is a 2
@@ -177,8 +177,8 @@ vector<double> MPC::Solve ( Eigen::VectorXd state , Eigen::VectorXd coeffs )
     // degrees (values in radians).
     for ( int i = delta_start; i < a_start; i++ )
     {
-        vars_lowerbound [ i ] = -0.436332*Lf;
-        vars_upperbound [ i ] = 0.436332*Lf;
+        vars_lowerbound [ i ] = -0.436332;
+        vars_upperbound [ i ] = 0.436332;
     }
 
     // Acceleration / decceleration upper and lower limits.
