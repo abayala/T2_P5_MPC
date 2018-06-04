@@ -103,7 +103,7 @@ for ( int t = 0; t < N - 2; t++ )
 }
 ```
 
-Where it can be observed that the cte, delta actator effect and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 60 km/h
+Where it can be observed that the cte, delta actuator effect and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 60 km/h
 
 Some important comments of the next part of the code 
 
@@ -125,7 +125,7 @@ fg [ 1 + epsi_start + t ] = epsi1 - ( ( psi0 - psides0 ) + v0 * delta0 / Lf * dt
  f0 and psides0 are evaluted with the computed coefficients and a 3rd degree polynomial. As seen in the code comments, there are also constraints in the state vector, it shall be equal to 0, for example x[t+1] - x[t] + v * cos ( psi ) * dt = 0
  
 
-10.- The result from the solve function is extracted, where in vars[0] the steering value is stored, and which I dived by deg2rad(25)*Lf
+10.- The result from the solve function is extracted, where  -vars[0] is the steering value, and which I dived by -deg2rad(25)*Lf
 
 11.- In vars[1] is the throttle value
 
