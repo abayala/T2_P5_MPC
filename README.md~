@@ -103,7 +103,7 @@ for ( int t = 0; t < N - 2; t++ )
 }
 ```
 
-Where it can be observed that the cte, delta actator effect and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 60 km/h
+Where it can be observed that the cte and epsi error are the ones with most weight. I also added a reference velocity term to avoid the car stopping in the curves, this is the ref_v = 60 km/h
 
 Some important comments of the next part of the code 
 
